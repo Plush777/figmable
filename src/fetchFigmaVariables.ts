@@ -25,12 +25,16 @@ interface FigmaFetchArgs {
  * @interface FigmaNode
  */
 interface FigmaNode {
+  /** Node type */
+  type?: string;
   /** Node name */
   name?: string;
+  /** Text contents (for TEXT nodes) */
+  characters?: string;
   /** Child nodes */
   children?: FigmaNode[];
   /** Fill styles including colors */
-  fills?: { color?: { r: number; g: number; b: number } }[];
+  fills?: { type?: string; color?: { r: number; g: number; b: number }; opacity?: number }[];
 }
 
 /**
@@ -54,7 +58,7 @@ export const fetchFigmaVariables = async (
 
   try {
     const response = await axios.get<FigmaResponse>(
-      `https://api.figma.com/v1/files/${FIGMA_FILE_KEY}/variables/local`,
+      `https://api.figma.com/v1/files/${FIGMA_FILE_KEY}`,
       {
         headers: {
           "X-FIGMA-TOKEN": FIGMA_API_TOKEN,
@@ -67,26 +71,102 @@ export const fetchFigmaVariables = async (
       throw new Error("Figma document data could not be found.");
     }
 
+    const toKebabCase = (value: string): string =>
+      value
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/_/g, "-")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+    const readLabel = (node?: FigmaNode): string | undefined => {
+      if (!node) return undefined;
+      if (node.type === "TEXT" && node.characters?.trim()) {
+        return node.characters.trim();
+      }
+      return node.name?.trim();
+    };
+
+    const findNumericName = (node: FigmaNode): string | undefined => {
+      const currentLabel = readLabel(node);
+      if (currentLabel && /^\d+$/.test(currentLabel)) {
+        return currentLabel;
+      }
+
+      const numericChild = node.children?.find(
+        (child) => !!readLabel(child) && /^\d+$/.test(readLabel(child) as string)
+      );
+
+      return readLabel(numericChild);
+    };
+
+    const findPaletteLabel = (node: FigmaNode): string | undefined => {
+      const labelCandidate = node.children?.find((child) => {
+        const label = readLabel(child);
+        return (
+          !!label &&
+          !label.startsWith("--") &&
+          !/^\d+$/.test(label) &&
+          !["color", "img_gray_color", "colors"].includes(label.toLowerCase())
+        );
+      });
+
+      return readLabel(labelCandidate);
+    };
+
+    const getSolidFillColor = (node: FigmaNode): string | undefined => {
+      const solidFill = node.fills?.find(
+        (fill) => fill.type === "SOLID" && !!fill.color
+      );
+      if (!solidFill?.color) return undefined;
+
+      const { r, g, b } = solidFill.color;
+      return rgbToHex(r, g, b);
+    };
+
     const extractColors = (
       node: FigmaNode,
-      accumulatedColors: Record<string, string>
+      accumulatedColors: Record<string, string>,
+      context: { paletteName?: string } = {},
+      parent?: FigmaNode
     ): Record<string, string> => {
+      const paletteName = findPaletteLabel(node) || context.paletteName;
+
       if (!node.children) return accumulatedColors;
 
-      return node.children.reduce((acc, child) => {
-        if (child.fills && child.fills[0]?.color) {
-          const { r, g, b } = child.fills[0].color;
-          const hexColor = rgbToHex(r, g, b);
+      node.children.forEach((child) => {
+        const hexColor = getSolidFillColor(child);
 
-          if (child.name && child.name.startsWith("--")) {
-            const colorName = child.name.toLowerCase();
-            if (!acc[colorName]) {
-              acc[colorName] = hexColor;
+        if (hexColor) {
+          const explicitName = readLabel(child);
+          if (explicitName?.startsWith("--")) {
+            const colorName = explicitName.toLowerCase();
+            if (!accumulatedColors[colorName]) {
+              accumulatedColors[colorName] = hexColor;
+            }
+          } else if (paletteName) {
+            const shade =
+              findNumericName(child) ||
+              findNumericName(node) ||
+              (parent ? findNumericName(parent) : undefined);
+
+            const normalizedPalette = toKebabCase(paletteName);
+            const generatedName = shade
+              ? `--${normalizedPalette}-${shade}`
+              : `--${normalizedPalette}`;
+
+            if (normalizedPalette && !accumulatedColors[generatedName]) {
+              accumulatedColors[generatedName] = hexColor;
             }
           }
         }
-        return { ...acc, ...extractColors(child, acc) };
-      }, accumulatedColors);
+
+        extractColors(child, accumulatedColors, { paletteName }, node);
+      });
+
+      return accumulatedColors;
     };
 
     const colors = extractColors(figmaData.document, {});
