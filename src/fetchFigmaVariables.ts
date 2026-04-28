@@ -96,6 +96,29 @@ export const fetchFigmaVariables = async (
       return node.characters?.trim();
     };
 
+    const findTextInDescendants = (
+      node: FigmaNode,
+      predicate: (value: string) => boolean
+    ): string | undefined => {
+      const queue = [...(node.children || [])];
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current) continue;
+
+        const text = readTextCharacters(current);
+        if (text && predicate(text)) {
+          return text;
+        }
+
+        if (current.children?.length) {
+          queue.push(...current.children);
+        }
+      }
+
+      return undefined;
+    };
+
     const findNumericName = (node: FigmaNode): string | undefined => {
       const currentLabel = readTextCharacters(node);
       if (currentLabel && /^\d+$/.test(currentLabel)) {
@@ -106,7 +129,11 @@ export const fetchFigmaVariables = async (
         (child) => !!readTextCharacters(child) && /^\d+$/.test(readTextCharacters(child) as string)
       );
 
-      return readTextCharacters(numericChild);
+      if (numericChild) {
+        return readTextCharacters(numericChild);
+      }
+
+      return findTextInDescendants(node, (text) => /^\d+$/.test(text));
     };
 
     const findPaletteLabel = (node: FigmaNode): string | undefined => {
@@ -120,7 +147,17 @@ export const fetchFigmaVariables = async (
         );
       });
 
-      return readTextCharacters(labelCandidate);
+      if (labelCandidate) {
+        return readTextCharacters(labelCandidate);
+      }
+
+      return findTextInDescendants(node, (text) => {
+        return (
+          !text.startsWith("--") &&
+          !/^\d+$/.test(text) &&
+          !["color", "img_gray_color", "colors"].includes(text.toLowerCase())
+        );
+      });
     };
 
     const findCategoryLabel = (node: FigmaNode): string | undefined => {
