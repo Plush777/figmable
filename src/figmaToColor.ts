@@ -4,6 +4,7 @@
  */
 
 import * as fs from "fs";
+import { normalizeColorVariableName } from "./normalizeColorVariableName";
 
 /**
  * Arguments for CSS update operation
@@ -47,6 +48,9 @@ export const updateCssVariables = async (
     throw new Error(`Error reading CSS file at ${cssFilePath}: ${err}`);
   }
 
+  const normalizedFigmaVariables = normalizeFigmaVariables(figmaVariables);
+  globalCss = normalizeExistingCssVariables(globalCss, normalizedFigmaVariables);
+
   const existingVariables: Set<string> = new Set();
 
   const rootContentMatch: RegExpMatchArray | null =
@@ -54,7 +58,7 @@ export const updateCssVariables = async (
 
   if (rootContentMatch) {
     const rootContent: string = rootContentMatch[1];
-    const regex: RegExp = /--[\w-]+\s*:\s*[^;]+;/g;
+    const regex: RegExp = /--[^:\s]+\s*:\s*[^;]+;/g;
     const existingVars: RegExpMatchArray | null = rootContent.match(regex);
 
     if (existingVars) {
@@ -72,8 +76,11 @@ export const updateCssVariables = async (
     let cssVariables: string = "";
 
     for (const [key, value] of Object.entries(colors)) {
-      if (key.startsWith("--") && !existingVariables.has(key)) {
-        cssVariables += `    ${key}: ${value};\n`;
+      if (key.startsWith("--")) {
+        const variableName = normalizeColorVariableName(key);
+        if (!existingVariables.has(variableName)) {
+          cssVariables += `    ${variableName}: ${value};\n`;
+        }
       }
     }
 
@@ -84,7 +91,7 @@ export const updateCssVariables = async (
     /:root \{([^}]*)\}/,
     (match: string, rootContent: string) => {
       const newVariables: string = generateCssVariables(
-        figmaVariables,
+        normalizedFigmaVariables,
         existingVariables,
       );
       return match.replace(rootContent, `${rootContent}\n${newVariables}`);
@@ -105,4 +112,57 @@ export const updateCssVariables = async (
     cssPath: cssFilePath,
     backupPath: backupCreated,
   };
+};
+
+const normalizeFigmaVariables = (
+  variables: Record<string, string>,
+): Record<string, string> => {
+  return Object.fromEntries(
+    Object.entries(variables).map(([key, value]) => [
+      normalizeColorVariableName(key),
+      value,
+    ]),
+  );
+};
+
+const normalizeExistingCssVariables = (
+  css: string,
+  colors: Record<string, string>,
+): string => {
+  const variableNameMap = new Map<string, string>();
+
+  Object.keys(colors).forEach((variableName) => {
+    variableNameMap.set(variableName, variableName);
+    if (variableName.startsWith("--color-")) {
+      variableNameMap.set(
+        `--${variableName.slice("--color-".length)}`,
+        variableName,
+      );
+    }
+  });
+
+  return css.replace(/:root \{([^}]*)\}/, (match, rootContent: string) => {
+    const normalizedVariables = new Set<string>();
+    const normalizedRootContent = rootContent.replace(
+      /(--[^:\s]+)(\s*:\s*[^;]+;)/g,
+      (declaration, variableName: string, declarationValue: string) => {
+        const normalizedName =
+          variableNameMap.get(variableName) ||
+          variableNameMap.get(normalizeColorVariableName(variableName));
+
+        if (!normalizedName) {
+          return declaration;
+        }
+
+        if (normalizedVariables.has(normalizedName)) {
+          return "";
+        }
+
+        normalizedVariables.add(normalizedName);
+        return `${normalizedName}${declarationValue}`;
+      },
+    );
+
+    return match.replace(rootContent, normalizedRootContent);
+  });
 };
