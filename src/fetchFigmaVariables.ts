@@ -67,10 +67,50 @@ export const fetchFigmaVariables = async (
       throw new Error("Figma document data could not be found.");
     }
 
+    const toKebabCase = (value: string): string =>
+      value
+        .trim()
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/_/g, "-")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+    const findNumericName = (node: FigmaNode): string | undefined => {
+      if (node.name && /^\d+$/.test(node.name.trim())) {
+        return node.name.trim();
+      }
+
+      const numericChild = node.children?.find(
+        (child) => child.name && /^\d+$/.test(child.name.trim())
+      );
+
+      return numericChild?.name?.trim();
+    };
+
+    const findPaletteLabel = (node: FigmaNode): string | undefined => {
+      const labelCandidate = node.children?.find((child) => {
+        const name = child.name?.trim();
+        return (
+          !!name &&
+          !name.startsWith("--") &&
+          !/^\d+$/.test(name) &&
+          !["color", "img_gray_color"].includes(name.toLowerCase())
+        );
+      });
+
+      return labelCandidate?.name?.trim();
+    };
+
     const extractColors = (
       node: FigmaNode,
-      accumulatedColors: Record<string, string>
+      accumulatedColors: Record<string, string>,
+      context: { paletteName?: string } = {},
+      parent?: FigmaNode
     ): Record<string, string> => {
+      const paletteName = findPaletteLabel(node) || context.paletteName;
+
       if (!node.children) return accumulatedColors;
 
       return node.children.reduce((acc, child) => {
@@ -78,14 +118,32 @@ export const fetchFigmaVariables = async (
           const { r, g, b } = child.fills[0].color;
           const hexColor = rgbToHex(r, g, b);
 
-          if (child.name && child.name.startsWith("--")) {
+          if (child.name?.startsWith("--")) {
             const colorName = child.name.toLowerCase();
             if (!acc[colorName]) {
               acc[colorName] = hexColor;
             }
+          } else if (paletteName) {
+            const shade =
+              findNumericName(child) ||
+              findNumericName(node) ||
+              (parent ? findNumericName(parent) : undefined);
+
+            const normalizedPalette = toKebabCase(paletteName);
+            const generatedName = shade
+              ? `--${normalizedPalette}-${shade}`
+              : `--${normalizedPalette}`;
+
+            if (normalizedPalette && !acc[generatedName]) {
+              acc[generatedName] = hexColor;
+            }
           }
         }
-        return { ...acc, ...extractColors(child, acc) };
+
+        return {
+          ...acc,
+          ...extractColors(child, acc, { paletteName }, node),
+        };
       }, accumulatedColors);
     };
 
