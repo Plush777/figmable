@@ -79,7 +79,7 @@ export const fetchFigmaVariables = async (
           const hexColor = rgbToHex(r, g, b);
 
           if (child.name && child.name.startsWith("--")) {
-            const colorName = child.name.toLowerCase();
+            const colorName = normalizeColorVariableName(child.name);
             if (!acc[colorName]) {
               acc[colorName] = hexColor;
             }
@@ -137,6 +137,22 @@ export const fetchFigmaVariables = async (
     }
     throw error;
   }
+};
+
+/**
+ * Normalizes color variable names to use the `--color-` prefix.
+ * @param {string} variableName - Original Figma variable name
+ * @returns {string} Normalized variable name
+ */
+const normalizeColorVariableName = (variableName: string): string => {
+  const normalizedName = variableName.toLowerCase();
+  if (normalizedName.startsWith("--color-")) {
+    return normalizedName;
+  }
+  if (normalizedName.startsWith("--")) {
+    return `--color-${normalizedName.slice(2)}`;
+  }
+  return normalizedName;
 };
 
 /**
