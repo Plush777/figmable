@@ -118,6 +118,20 @@ export const fetchFigmaVariables = async (
       return readLabel(labelCandidate);
     };
 
+    const findCategoryLabel = (node: FigmaNode): string | undefined => {
+      const nodeLabel = readLabel(node)?.toLowerCase();
+      if (nodeLabel && ["color", "colors"].includes(nodeLabel)) {
+        return nodeLabel;
+      }
+
+      const categoryChild = node.children?.find((child) => {
+        const label = readLabel(child)?.toLowerCase();
+        return !!label && ["color", "colors"].includes(label);
+      });
+
+      return readLabel(categoryChild)?.toLowerCase();
+    };
+
     const getSolidFillColor = (node: FigmaNode): string | undefined => {
       const solidFill = node.fills?.find(
         (fill) => fill.type === "SOLID" && !!fill.color
@@ -136,10 +150,11 @@ export const fetchFigmaVariables = async (
     const extractColors = (
       node: FigmaNode,
       accumulatedColors: Record<string, string>,
-      context: { paletteName?: string } = {},
+      context: { paletteName?: string; categoryName?: string } = {},
       parent?: FigmaNode
     ): Record<string, string> => {
       const paletteName = findPaletteLabel(node) || context.paletteName;
+      const categoryName = findCategoryLabel(node) || context.categoryName;
 
       if (!node.children) return accumulatedColors;
 
@@ -159,18 +174,24 @@ export const fetchFigmaVariables = async (
               findNumericName(node) ||
               (parent ? findNumericName(parent) : undefined);
 
+            const normalizedCategory = categoryName
+              ? toKebabCase(categoryName)
+              : "";
             const normalizedPalette = toKebabCase(paletteName);
+            const paletteKey = normalizedCategory
+              ? `${normalizedCategory}-${normalizedPalette}`
+              : normalizedPalette;
             const generatedName = shade
-              ? `--${normalizedPalette}-${shade}`
-              : `--${normalizedPalette}`;
+              ? `--${paletteKey}-${shade}`
+              : `--${paletteKey}`;
 
-            if (normalizedPalette && !accumulatedColors[generatedName]) {
+            if (paletteKey && !accumulatedColors[generatedName]) {
               accumulatedColors[generatedName] = hexColor;
             }
           }
         }
 
-        extractColors(child, accumulatedColors, { paletteName }, node);
+        extractColors(child, accumulatedColors, { paletteName, categoryName }, node);
       });
 
       return accumulatedColors;
