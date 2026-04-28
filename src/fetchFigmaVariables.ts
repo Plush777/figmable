@@ -160,6 +160,20 @@ export const fetchFigmaVariables = async (
             if (normalizedPalette && !accumulatedColors[generatedName]) {
               accumulatedColors[generatedName] = hexColor;
             }
+          } else if (paletteName) {
+            const shade =
+              findNumericName(child) ||
+              findNumericName(node) ||
+              (parent ? findNumericName(parent) : undefined);
+
+            const normalizedPalette = toKebabCase(paletteName);
+            const generatedName = shade
+              ? `--${normalizedPalette}-${shade}`
+              : `--${normalizedPalette}`;
+
+            if (normalizedPalette && !acc[generatedName]) {
+              acc[generatedName] = hexColor;
+            }
           }
         }
 
