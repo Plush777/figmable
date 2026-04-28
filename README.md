@@ -59,7 +59,7 @@ Just two commands and you're done! Figmable will:
 ![Image](https://github.com/user-attachments/assets/1c0fe845-9bc5-4977-869d-67951f5be008)
 
 - Name your color objects with `--` prefix (e.g., `--primary-500`, `--orange-600`)
-- This naming convention is required for Figmable to identify and extract color variables
+- You can also use grouped palette structures (e.g., `Neutral` group + numeric shade labels like `0`, `5`, `10`) and Figmable will generate variable names such as `--neutral-0`
 - Example:
   ```
   --primary-500  →  #3B82F6
