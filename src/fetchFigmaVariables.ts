@@ -25,6 +25,8 @@ interface FigmaFetchArgs {
  * @interface FigmaNode
  */
 interface FigmaNode {
+  /** Node ID */
+  id?: string;
   /** Node type */
   type?: string;
   /** Node name */
@@ -126,6 +128,11 @@ export const fetchFigmaVariables = async (
       return rgbToHex(r, g, b);
     };
 
+    const collectNodes = (node: FigmaNode): FigmaNode[] => {
+      const descendants = node.children?.flatMap((child) => collectNodes(child)) || [];
+      return [node, ...descendants];
+    };
+
     const extractColors = (
       node: FigmaNode,
       accumulatedColors: Record<string, string>,
@@ -160,20 +167,6 @@ export const fetchFigmaVariables = async (
             if (normalizedPalette && !accumulatedColors[generatedName]) {
               accumulatedColors[generatedName] = hexColor;
             }
-          } else if (paletteName) {
-            const shade =
-              findNumericName(child) ||
-              findNumericName(node) ||
-              (parent ? findNumericName(parent) : undefined);
-
-            const normalizedPalette = toKebabCase(paletteName);
-            const generatedName = shade
-              ? `--${normalizedPalette}-${shade}`
-              : `--${normalizedPalette}`;
-
-            if (normalizedPalette && !acc[generatedName]) {
-              acc[generatedName] = hexColor;
-            }
           }
         }
 
@@ -183,7 +176,20 @@ export const fetchFigmaVariables = async (
       return accumulatedColors;
     };
 
+    const allNodes = collectNodes(figmaData.document);
     const colors = extractColors(figmaData.document, {});
+
+    if (Object.keys(colors).length === 0) {
+      const nodePreview = allNodes
+        .slice(0, 15)
+        .map((node) => `${node.id || "unknown"}:${node.type || "UNKNOWN"}:${node.name || "(unnamed)"}`)
+        .join(" | ");
+
+      console.warn(
+        `⚠️ No color variables were extracted. Parsed ${allNodes.length} nodes from /v1/files response.\n` +
+          `Node preview: ${nodePreview}`
+      );
+    }
 
     let outputDir;
     let outputPath;
