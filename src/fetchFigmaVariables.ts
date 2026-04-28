@@ -91,22 +91,27 @@ export const fetchFigmaVariables = async (
       return node.name?.trim();
     };
 
+    const readTextCharacters = (node?: FigmaNode): string | undefined => {
+      if (!node || node.type !== "TEXT") return undefined;
+      return node.characters?.trim();
+    };
+
     const findNumericName = (node: FigmaNode): string | undefined => {
-      const currentLabel = readLabel(node);
+      const currentLabel = readTextCharacters(node);
       if (currentLabel && /^\d+$/.test(currentLabel)) {
         return currentLabel;
       }
 
       const numericChild = node.children?.find(
-        (child) => !!readLabel(child) && /^\d+$/.test(readLabel(child) as string)
+        (child) => !!readTextCharacters(child) && /^\d+$/.test(readTextCharacters(child) as string)
       );
 
-      return readLabel(numericChild);
+      return readTextCharacters(numericChild);
     };
 
     const findPaletteLabel = (node: FigmaNode): string | undefined => {
       const labelCandidate = node.children?.find((child) => {
-        const label = readLabel(child);
+        const label = readTextCharacters(child);
         return (
           !!label &&
           !label.startsWith("--") &&
@@ -115,7 +120,7 @@ export const fetchFigmaVariables = async (
         );
       });
 
-      return readLabel(labelCandidate);
+      return readTextCharacters(labelCandidate);
     };
 
     const findCategoryLabel = (node: FigmaNode): string | undefined => {
