@@ -185,7 +185,7 @@ const main = async () => {
 
     const { cssPath, backupPath } = await updateCssVariables({
       cssFilePath: runConfig.cssFilePath,
-      jsonFilePath: runConfig.outputJsonPath,
+      jsonFilePath: jsonPath,
       noBackup: !parsedArgv.backup,
     });
 
