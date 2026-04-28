@@ -1,0 +1,15 @@
+{
+  "--neutral-0": "#ffffff",
+  "--neutral-5": "#f6f7f7",
+  "--neutral-10": "#e9eaeb",
+  "--neutral-20": "#d2d2d3",
+  "--neutral-30": "#b4b7ba",
+  "--neutral-40": "#9a9da1",
+  "--neutral-50": "#808388",
+  "--neutral-60": "#676a6e",
+  "--neutral-70": "#4e5154",
+  "--neutral-80": "#363739",
+  "--neutral-90": "#242424",
+  "--neutral-95": "#111112",
+  "--neutral-100": "#000000"
+}

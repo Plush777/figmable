@@ -36,7 +36,7 @@ const argv = yargs(hideBin(process.argv))
       console.error("❌ Configuration file not found.");
       console.error("To save configuration, use the following command:");
       console.error(
-        "  figmable config --fileKey YOUR_KEY --token YOUR_TOKEN --path YOUR_PATH"
+        "  figmable config --fileKey YOUR_KEY --token YOUR_TOKEN --path YOUR_PATH",
       );
       return;
     }
@@ -47,7 +47,7 @@ const argv = yargs(hideBin(process.argv))
     console.log(`\n📝 Current Configuration`);
     ~console.log(`  └─ 🔧 Config file: file://${configPath}`);
     console.log(
-      "     (You can edit the configuration file directly at the path above!)"
+      "     (You can edit the configuration file directly at the path above!)",
     );
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("🔑 Figma Settings");
@@ -138,7 +138,7 @@ const main = async () => {
   if (parsedArgv._[0] === "config") {
     if (!parsedArgv.fileKey || !parsedArgv.token || !parsedArgv.path) {
       console.error(
-        "❌ fileKey, token, and path are required for configuration."
+        "❌ fileKey, token, and path are required for configuration.",
       );
       return;
     }
@@ -159,7 +159,7 @@ const main = async () => {
   const config = getConfig();
   if (!config) {
     console.error(
-      "❌ Configuration file not found. Use `figmable config` command to save configuration first."
+      "❌ Configuration file not found. Use `figmable config` command to save configuration first.",
     );
     return;
   }
@@ -178,14 +178,14 @@ const main = async () => {
     spinner.start("Fetching Figma variables...");
     const jsonPath = await fetchFigmaVariables(runConfig);
     spinner.succeed(
-      `Successfully fetched Figma variables!\n  └─ 📄 JSON file: ${jsonPath}`
+      `Successfully fetched Figma variables!\n  └─ 📄 JSON file: ${jsonPath}`,
     );
 
     spinner.start("Updating CSS file...");
 
     const { cssPath, backupPath } = await updateCssVariables({
       cssFilePath: runConfig.cssFilePath,
-      jsonFilePath: jsonPath,
+      jsonFilePath: runConfig.outputJsonPath,
       noBackup: !parsedArgv.backup,
     });
 
@@ -195,7 +195,7 @@ const main = async () => {
     } else {
       spinner.succeed(successMessage);
       console.log(
-        "\n📝 To enable backup files, run: figmable --backup or just figmable"
+        "\n📝 To enable backup files, run: figmable --backup or just figmable",
       );
     }
   } catch (error) {
@@ -230,7 +230,7 @@ const main = async () => {
       "• API Token:",
       config.FIGMA_API_TOKEN.slice(0, 4) +
         "..." +
-        config.FIGMA_API_TOKEN.slice(-4)
+        config.FIGMA_API_TOKEN.slice(-4),
     );
     console.log("• CSS File Path:", config.cssFilePath);
     console.log(`  └─ file://${path.resolve(config.cssFilePath)}`);

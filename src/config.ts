@@ -26,7 +26,10 @@ interface Config {
 const CONFIG_FILE = ".figmablerc";
 
 /** Possible paths for the configuration file */
-const CONFIG_PATHS = [path.join(process.cwd(), CONFIG_FILE), path.join(os.homedir(), CONFIG_FILE)];
+const CONFIG_PATHS = [
+  path.join(process.cwd(), CONFIG_FILE),
+  path.join(os.homedir(), CONFIG_FILE),
+];
 
 /**
  * Retrieves the configuration from the config file
