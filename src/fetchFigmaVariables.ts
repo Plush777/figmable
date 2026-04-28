@@ -91,22 +91,54 @@ export const fetchFigmaVariables = async (
       return node.name?.trim();
     };
 
+    const readTextCharacters = (node?: FigmaNode): string | undefined => {
+      if (!node || node.type !== "TEXT") return undefined;
+      return node.characters?.trim();
+    };
+
+    const findTextInDescendants = (
+      node: FigmaNode,
+      predicate: (value: string) => boolean
+    ): string | undefined => {
+      const queue = [...(node.children || [])];
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current) continue;
+
+        const text = readTextCharacters(current);
+        if (text && predicate(text)) {
+          return text;
+        }
+
+        if (current.children?.length) {
+          queue.push(...current.children);
+        }
+      }
+
+      return undefined;
+    };
+
     const findNumericName = (node: FigmaNode): string | undefined => {
-      const currentLabel = readLabel(node);
+      const currentLabel = readTextCharacters(node);
       if (currentLabel && /^\d+$/.test(currentLabel)) {
         return currentLabel;
       }
 
       const numericChild = node.children?.find(
-        (child) => !!readLabel(child) && /^\d+$/.test(readLabel(child) as string)
+        (child) => !!readTextCharacters(child) && /^\d+$/.test(readTextCharacters(child) as string)
       );
 
-      return readLabel(numericChild);
+      if (numericChild) {
+        return readTextCharacters(numericChild);
+      }
+
+      return findTextInDescendants(node, (text) => /^\d+$/.test(text));
     };
 
     const findPaletteLabel = (node: FigmaNode): string | undefined => {
       const labelCandidate = node.children?.find((child) => {
-        const label = readLabel(child);
+        const label = readTextCharacters(child);
         return (
           !!label &&
           !label.startsWith("--") &&
@@ -115,7 +147,17 @@ export const fetchFigmaVariables = async (
         );
       });
 
-      return readLabel(labelCandidate);
+      if (labelCandidate) {
+        return readTextCharacters(labelCandidate);
+      }
+
+      return findTextInDescendants(node, (text) => {
+        return (
+          !text.startsWith("--") &&
+          !/^\d+$/.test(text) &&
+          !["color", "img_gray_color", "colors"].includes(text.toLowerCase())
+        );
+      });
     };
 
     const findCategoryLabel = (node: FigmaNode): string | undefined => {
